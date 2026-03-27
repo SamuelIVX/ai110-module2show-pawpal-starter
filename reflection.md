@@ -4,6 +4,60 @@
 
 **a. Initial design**
 
+**Core user actions:**
+
+1. **Add and describe their pet** — The user enters basic information about their pet (name and species). This gives the scheduler the context it needs to tailor a care plan, since a dog's needs differ from a cat's.
+
+2. **Build a task list with priorities and durations** — The user adds care tasks (e.g., morning walk, feeding, medication, grooming) and for each task specifies how long it takes and how important it is (low / medium / high priority). This is the raw input the scheduler uses to make decisions.
+
+3. **Generate and review a daily schedule** — The user triggers the scheduler, which arranges the tasks into a realistic daily plan that fits within available time. The app displays the ordered schedule and explains why tasks were included, ordered, or skipped — so the user understands the reasoning, not just the output.
+
+**UML Class Diagram (Mermaid):**
+
+```mermaid
+classDiagram
+    class Owner {
+        +String name
+        +int available_minutes
+        +to_dict() dict
+    }
+
+    class Pet {
+        +String name
+        +String species
+        +to_dict() dict
+    }
+
+    class Task {
+        +String title
+        +int duration_minutes
+        +String priority
+        +priority_rank() int
+        +to_dict() dict
+    }
+
+    class Scheduler {
+        +Owner owner
+        +Pet pet
+        +List~Task~ tasks
+        +generate_schedule() Schedule
+        -_rank_tasks() List~Task~
+    }
+
+    class Schedule {
+        +List~Task~ planned_tasks
+        +List~Task~ skipped_tasks
+        +int total_minutes_used
+        +String reasoning
+        +summary() str
+    }
+
+    Owner "1" --> "1" Scheduler : drives time budget
+    Pet "1" --> "1" Scheduler : provides context
+    Scheduler "1" --> "many" Task : ranks and filters
+    Scheduler "1" --> "1" Schedule : produces
+```
+
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
 
