@@ -20,6 +20,9 @@ class Owner:
         pass
 
 
+PRIORITY_MAP = {"low": 1, "medium": 2, "high": 3}
+
+
 @dataclass
 class Task:
     title: str
@@ -28,7 +31,7 @@ class Task:
 
     def priority_rank(self) -> int:
         """Convert priority string to int for sorting (high=3, medium=2, low=1)."""
-        pass
+        return PRIORITY_MAP.get(self.priority, 0)
 
     def to_dict(self) -> dict:
         pass

@@ -58,13 +58,11 @@ classDiagram
     Scheduler "1" --> "1" Schedule : produces
 ```
 
-- Briefly describe your initial UML design.
-- What classes did you include, and what responsibilities did you assign to each?
+The design has five classes. `Pet` and `Owner` are pure data holders — `Pet` stores name and species, `Owner` stores name and the day's time budget in minutes. `Task` holds a single care activity (title, duration, priority) and knows how to convert its priority string to a sortable integer via `priority_rank()`. `Scheduler` is the coordinator: it receives an `Owner`, a `Pet`, and a list of `Tasks`, then produces a `Schedule` by sorting tasks by priority and fitting them within the owner's available time. `Schedule` is the output object — it separates planned tasks from skipped ones, tracks total minutes used, and holds a human-readable reasoning string explaining the decisions made.
 
 **b. Design changes**
 
-- Did your design change during implementation?
-- If yes, describe at least one change and why you made it.
+During review of the skeleton, a logic bottleneck was identified in `Task.priority_rank()`: the priority string ("low", "medium", "high") needed to be mapped to an integer for sorting, but if an invalid or unexpected value was passed (e.g., "urgent"), the method had no fallback and would silently return `None`, breaking the sort. To fix this, a module-level `PRIORITY_MAP` constant (`{"low": 1, "medium": 2, "high": 3}`) was extracted and `priority_rank()` was implemented as `PRIORITY_MAP.get(self.priority, 0)`. This centralizes the ranking logic in one place, makes it easy to extend later, and ensures unknown priorities degrade gracefully to rank 0 (sorted last) rather than crashing.
 
 ---
 
