@@ -22,6 +22,7 @@ class Task:
         self.completed = True
 
     def to_dict(self) -> dict:
+        """Serialize this task to a plain dictionary."""
         return {
             "title": self.title,
             "duration_minutes": self.duration_minutes,
@@ -46,6 +47,7 @@ class Pet:
         return self.tasks
 
     def to_dict(self) -> dict:
+        """Serialize this pet and its tasks to a plain dictionary."""
         return {
             "name": self.name,
             "species": self.species,
@@ -71,6 +73,7 @@ class Owner:
         return all_tasks
 
     def to_dict(self) -> dict:
+        """Serialize this owner and all their pets to a plain dictionary."""
         return {
             "name": self.name,
             "available_minutes": self.available_minutes,
@@ -111,6 +114,7 @@ class Schedule:
 
 class Scheduler:
     def __init__(self, owner: Owner):
+        """Initialize the scheduler with an owner whose pets and tasks will be scheduled."""
         self.owner = owner
 
     def generate_schedule(self) -> Schedule:
@@ -154,6 +158,7 @@ class Scheduler:
     def _build_reasoning(
         self, planned: List[Task], skipped: List[Task], total_used: int
     ) -> str:
+        """Build a human-readable explanation of why tasks were included or skipped."""
         lines = [
             f"Tasks were sorted by priority (high → low) and scheduled greedily "
             f"within {self.owner.available_minutes} minutes available today."
