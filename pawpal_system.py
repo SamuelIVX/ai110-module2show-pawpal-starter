@@ -1,3 +1,4 @@
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import List, Optional
@@ -215,12 +216,8 @@ class Scheduler:
         warnings = []
 
         for pet in self.owner.pets:
-            seen: dict[tuple, int] = {}   # (title_lower, due_date) → count
-            for task in pet.get_tasks():
-                key = (task.title.lower(), task.due_date)
-                seen[key] = seen.get(key, 0) + 1
-
-            for (title, due), count in seen.items():
+            keys = [(t.title.lower(), t.due_date) for t in pet.get_tasks()]
+            for (title, due), count in Counter(keys).items():
                 if count > 1:
                     warnings.append(
                         f"Duplicate task for {pet.name}: '{title}' appears {count}x on {due}."

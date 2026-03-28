@@ -75,8 +75,11 @@ During review of the skeleton, a logic bottleneck was identified in `Task.priori
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+The scheduler uses a **greedy algorithm**: it sorts tasks by priority (with duration as a tiebreaker) and adds each one to the plan if it fits in the remaining time budget, skipping it permanently if it does not. This means the scheduler can leave available time unused. For example, if the budget is 25 minutes and there is one 20-minute HIGH task and two 10-minute MEDIUM tasks, the greedy approach picks the 20-minute task (leaving 5 minutes idle) rather than the two 10-minute tasks (which would use 20 minutes and complete more tasks). The optimal solution — maximizing the number of tasks completed within the budget — is a variant of the 0/1 knapsack problem and is NP-hard.
+
+This tradeoff is reasonable for a pet care app for two reasons. First, greedy scheduling respects priority intent: if a walk is HIGH priority, it should always be attempted before lower-priority tasks, even if that means less overall utilization. Second, the time budgets in this domain (60–120 minutes) and task counts (5–15 items) are small enough that the greedy approach almost never leaves significant time on the table in practice. Implementing a full knapsack solver would add complexity with no meaningful benefit for the target user.
+
+A second tradeoff appears in conflict detection: duplicate task detection uses exact (case-insensitive) title matching. "Morning walk" and "Walk Mochi" would not be caught as duplicates even if they represent the same activity. Fuzzy matching was considered but rejected because it would produce false positives (e.g., flagging "Brush fur" and "Brush teeth" as duplicates) without a clear threshold to tune.
 
 ---
 
