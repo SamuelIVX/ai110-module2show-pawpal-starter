@@ -72,6 +72,13 @@ class Owner:
             all_tasks.extend(pet.get_tasks())
         return all_tasks
 
+    def get_tasks_for_pet(self, pet_name: str) -> List[Task]:
+        """Return tasks belonging to the pet with the given name (case-insensitive)."""
+        for pet in self.pets:
+            if pet.name.lower() == pet_name.lower():
+                return pet.get_tasks()
+        return []
+
     def to_dict(self) -> dict:
         """Serialize this owner and all their pets to a plain dictionary."""
         return {
@@ -151,9 +158,38 @@ class Scheduler:
             reasoning=reasoning,
         )
 
+    def sort_by_duration(self, tasks: List[Task]) -> List[Task]:
+        """Return tasks sorted by duration ascending (shortest first)."""
+        return sorted(tasks, key=lambda t: t.duration_minutes)
+
+    def filter_tasks(
+        self,
+        tasks: List[Task],
+        completed: bool = None,
+        pet_name: str = None,
+    ) -> List[Task]:
+        """
+        Return a filtered subset of tasks.
+
+        - completed=True  → only completed tasks
+        - completed=False → only pending tasks
+        - completed=None  → no filter on completion status
+        - pet_name        → only tasks belonging to that pet (case-insensitive)
+        """
+        result = tasks
+
+        if completed is not None:
+            result = [t for t in result if t.completed == completed]
+
+        if pet_name is not None:
+            pet_tasks = self.owner.get_tasks_for_pet(pet_name)
+            result = [t for t in result if t in pet_tasks]
+
+        return result
+
     def _rank_tasks(self, tasks: List[Task]) -> List[Task]:
-        """Return tasks sorted by priority rank descending (high first)."""
-        return sorted(tasks, key=lambda t: t.priority_rank(), reverse=True)
+        """Sort by priority descending; break ties by duration ascending (shorter tasks first)."""
+        return sorted(tasks, key=lambda t: (-t.priority_rank(), t.duration_minutes))
 
     def _build_reasoning(
         self, planned: List[Task], skipped: List[Task], total_used: int
