@@ -1,50 +1,81 @@
-# PawPal+ (Module 2 Project)
+# 🐾 PawPal+
 
-You are building **PawPal+**, a Streamlit app that helps a pet owner plan care tasks for their pet.
+**PawPal+** is a smart daily care planner for pet owners. Tell it about your pet, add care tasks with priorities and durations, and it generates an optimized daily schedule — explaining every decision it makes.
 
-## Scenario
+Built with Python + Streamlit as a Module 2 project for CodePath AI110.
 
-A busy pet owner needs help staying consistent with pet care. They want an assistant that can:
+---
 
-- Track pet care tasks (walks, feeding, meds, enrichment, grooming, etc.)
-- Consider constraints (time available, priority, owner preferences)
-- Produce a daily plan and explain why it chose that plan
+## 📸 Demo
 
-Your job is to design the system first (UML), then implement the logic in Python, then connect it to the Streamlit UI.
+<a href="/course_images/ai110/your_screenshot_name.png" target="_blank"><img src='first_part.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
+<a href="/course_images/ai110/your_screenshot_name.png" target="_blank"><img src='second_part.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
 
-## What you will build
+---
 
-Your final app should:
+## ✨ Features
 
-- Let a user enter basic owner + pet info
-- Let a user add/edit tasks (duration + priority at minimum)
-- Generate a daily schedule/plan based on constraints and priorities
-- Display the plan clearly (and ideally explain the reasoning)
-- Include tests for the most important scheduling behaviors
+### Smart Scheduling
+- **Priority-first scheduling** — Tasks are ranked high → medium → low. The scheduler greedily fits tasks into the owner's daily time budget, starting from the most important.
+- **Duration tiebreaker** — When two tasks share the same priority, the shorter one is scheduled first. This maximizes the number of tasks that fit within the budget.
+- **Reasoning output** — Every generated schedule explains in plain English which tasks were included, which were skipped, and why.
 
-## Getting started
+### Recurring Tasks
+- **Daily recurrence** — Completing a daily task automatically creates the next occurrence for tomorrow (`due_date + 1 day`).
+- **Weekly recurrence** — Completing a weekly task schedules the next one for 7 days out.
+- **As-needed tasks** — Completing a one-off task closes it permanently with no new occurrence created.
+
+### Filtering & Sorting
+- **Filter by completion** — View only pending tasks or all tasks including completed ones.
+- **Sort by duration** — Re-order the task list shortest-to-longest for quick scanning.
+- **Filter by pet** — In multi-pet households, retrieve tasks belonging to a specific pet by name.
+
+### Conflict Detection
+- **Duplicate task warning** — If the same task title appears more than once for a pet on the same day, the scheduler flags it before presenting the schedule.
+- **Impossible task warning** — If a task's duration exceeds the owner's total time budget, the scheduler warns that it can never be scheduled rather than silently skipping it every time.
+- **Non-crashing** — All warnings are returned as human-readable strings; the scheduler always produces a schedule even when conflicts exist.
+
+---
+
+## 🗂 Project Structure
+
+```
+pawpal_system.py   # Logic layer: Task, Pet, Owner, Scheduler, Schedule
+app.py             # Streamlit UI
+tests/
+  test_pawpal.py   # 20 automated tests
+main.py            # Terminal demo script
+uml_final.png      # Final system architecture diagram
+reflection.md      # Design decisions and project reflection
+```
+
+---
+
+## 🚀 Getting Started
 
 ### Setup
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Smarter Scheduling
+### Run the app
 
-Beyond basic scheduling, PawPal+ includes four algorithmic features that make the planner more realistic:
+```bash
+streamlit run app.py
+```
 
-**Priority + duration sorting** — Tasks are ranked by priority (high → medium → low) with duration as a tiebreaker: among tasks of equal priority, shorter ones are scheduled first. This maximises the number of tasks that fit within the time budget rather than front-loading long tasks that waste remaining minutes.
+### Run the terminal demo
 
-**Filtering** — `Scheduler.filter_tasks()` lets you narrow any task list by completion status (`completed=True/False`) or by pet name. Useful for views like "show only Mochi's pending tasks" without re-querying from scratch.
+```bash
+python main.py
+```
 
-**Recurring tasks** — Each `Task` has a `frequency` field (`"daily"`, `"weekly"`, `"as-needed"`). When `Scheduler.mark_task_complete()` is called, it automatically creates and attaches the next occurrence to the pet using Python's `timedelta` (`+1 day` for daily, `+7 days` for weekly). As-needed tasks do not recur.
+---
 
-**Conflict detection** — Before returning a schedule, `Scheduler._detect_conflicts()` scans for two problems and returns human-readable warnings rather than raising exceptions: (1) duplicate task titles on the same pet for the same due date, and (2) tasks whose duration alone exceeds the owner's total time budget and can therefore never be scheduled. Warnings surface at the top of `Schedule.summary()` so the UI can display them immediately.
-
-## Testing PawPal+
+## 🧪 Testing PawPal+
 
 ### Run the tests
 
@@ -60,17 +91,35 @@ The suite contains **20 tests** across five categories:
 |---|---|---|
 | **Core behavior** | 4 | `mark_complete()` flips status; `add_task()` grows the list; scheduler orders high → medium → low; tasks too long are skipped |
 | **Sorting** | 2 | Equal-priority tasks are ordered shortest-first (tiebreaker); `sort_by_duration()` returns ascending order independently |
-| **Recurrence** | 4 | Daily tasks produce a `+1 day` next occurrence; weekly tasks produce `+7 days`; as-needed tasks return `None`; completing a daily task through the Scheduler adds exactly one new pending task |
-| **Conflict detection** | 3 | Duplicate task titles fire a warning; tasks longer than the budget fire a warning; a clean list produces zero warnings |
-| **Edge cases** | 4 | Pet with no tasks, owner with no pets, all tasks already completed — all return empty schedules without crashing; a task that exactly equals `available_minutes` is planned (not skipped) |
+| **Recurrence** | 4 | Daily → `+1 day`; weekly → `+7 days`; as-needed → `None`; completing through Scheduler adds exactly one new pending task |
+| **Conflict detection** | 3 | Duplicate titles fire a warning; impossible tasks fire a warning; a clean list produces zero warnings |
+| **Edge cases** | 4 | Pet with no tasks, owner with no pets, all tasks completed — empty schedules without crashing; task that exactly fills budget is planned not skipped |
 
 ### Confidence level
 
 ★★★★☆ (4 / 5)
 
-The core scheduling contract — priority ordering, time-budget enforcement, recurrence, and conflict detection — is fully covered and all 20 tests pass. The one-star gap reflects two open areas: (1) the Streamlit UI layer has no automated tests (requires browser interaction), and (2) conflict detection uses exact string matching, so semantically duplicate tasks with different titles (e.g., "Walk Mochi" vs "Morning walk") are not caught. These are known, documented tradeoffs rather than unknown risks.
+Core scheduling logic is fully covered. The one-star gap reflects two known, documented tradeoffs: no automated UI tests (requires browser interaction), and conflict detection uses exact string matching so semantically duplicate tasks with different titles are not caught.
 
-### Suggested workflow
+---
+
+## 🏗 System Architecture
+
+The final UML diagram is saved as [uml_final.png](uml_final.png).
+
+Five classes make up the logic layer:
+
+| Class | Role |
+|---|---|
+| `Task` | Single care activity — title, duration, priority, frequency, due date |
+| `Pet` | Owns a list of tasks; handles task completion and recurrence |
+| `Owner` | Owns a list of pets; aggregates all tasks across pets |
+| `Scheduler` | Coordinates scheduling, sorting, filtering, and conflict detection |
+| `Schedule` | Output object holding planned tasks, skipped tasks, reasoning, and conflict warnings |
+
+---
+
+## 🔄 Suggested Development Workflow
 
 1. Read the scenario carefully and identify requirements and edge cases.
 2. Draft a UML diagram (classes, attributes, methods, relationships).
