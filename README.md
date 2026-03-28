@@ -32,6 +32,18 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+## Smarter Scheduling
+
+Beyond basic scheduling, PawPal+ includes four algorithmic features that make the planner more realistic:
+
+**Priority + duration sorting** — Tasks are ranked by priority (high → medium → low) with duration as a tiebreaker: among tasks of equal priority, shorter ones are scheduled first. This maximises the number of tasks that fit within the time budget rather than front-loading long tasks that waste remaining minutes.
+
+**Filtering** — `Scheduler.filter_tasks()` lets you narrow any task list by completion status (`completed=True/False`) or by pet name. Useful for views like "show only Mochi's pending tasks" without re-querying from scratch.
+
+**Recurring tasks** — Each `Task` has a `frequency` field (`"daily"`, `"weekly"`, `"as-needed"`). When `Scheduler.mark_task_complete()` is called, it automatically creates and attaches the next occurrence to the pet using Python's `timedelta` (`+1 day` for daily, `+7 days` for weekly). As-needed tasks do not recur.
+
+**Conflict detection** — Before returning a schedule, `Scheduler._detect_conflicts()` scans for two problems and returns human-readable warnings rather than raising exceptions: (1) duplicate task titles on the same pet for the same due date, and (2) tasks whose duration alone exceeds the owner's total time budget and can therefore never be scheduled. Warnings surface at the top of `Schedule.summary()` so the UI can display them immediately.
+
 ### Suggested workflow
 
 1. Read the scenario carefully and identify requirements and edge cases.
