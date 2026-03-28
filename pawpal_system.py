@@ -129,10 +129,19 @@ class Schedule:
     skipped_tasks: List[Task] = field(default_factory=list)
     total_minutes_used: int = 0
     reasoning: str = ""
+    conflicts: List[str] = field(default_factory=list)
 
     def summary(self) -> str:
         """Return a formatted string of the schedule for display in the UI."""
-        lines = ["### Today's Plan\n"]
+        lines = []
+
+        if self.conflicts:
+            lines.append("### ⚠️ Conflicts Detected")
+            for warning in self.conflicts:
+                lines.append(f"  - {warning}")
+            lines.append("")
+
+        lines.append("### Today's Plan\n")
 
         if self.planned_tasks:
             for task in self.planned_tasks:
@@ -185,13 +194,47 @@ class Scheduler:
 
         total_used = self.owner.available_minutes - minutes_remaining
         reasoning = self._build_reasoning(planned, skipped, total_used)
+        conflicts = self._detect_conflicts()
 
         return Schedule(
             planned_tasks=planned,
             skipped_tasks=skipped,
             total_minutes_used=total_used,
             reasoning=reasoning,
+            conflicts=conflicts,
         )
+
+    def _detect_conflicts(self) -> List[str]:
+        """
+        Return a list of human-readable warning strings for any conflicts found.
+        Two conflict types are checked:
+          1. Duplicate task title on the same pet for the same due date.
+          2. A task whose duration alone exceeds the owner's total time budget.
+        Returns an empty list when no conflicts exist.
+        """
+        warnings = []
+
+        for pet in self.owner.pets:
+            seen: dict[tuple, int] = {}   # (title_lower, due_date) → count
+            for task in pet.get_tasks():
+                key = (task.title.lower(), task.due_date)
+                seen[key] = seen.get(key, 0) + 1
+
+            for (title, due), count in seen.items():
+                if count > 1:
+                    warnings.append(
+                        f"Duplicate task for {pet.name}: '{title}' appears {count}x on {due}."
+                    )
+
+            for task in pet.get_tasks():
+                if task.duration_minutes > self.owner.available_minutes:
+                    warnings.append(
+                        f"'{task.title}' ({task.duration_minutes} min) exceeds "
+                        f"{pet.name}'s owner time budget of {self.owner.available_minutes} min "
+                        f"— it can never be scheduled."
+                    )
+
+        return warnings
 
     def mark_task_complete(self, task: Task) -> Optional[Task]:
         """
