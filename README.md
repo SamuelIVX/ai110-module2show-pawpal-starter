@@ -44,6 +44,32 @@ Beyond basic scheduling, PawPal+ includes four algorithmic features that make th
 
 **Conflict detection** — Before returning a schedule, `Scheduler._detect_conflicts()` scans for two problems and returns human-readable warnings rather than raising exceptions: (1) duplicate task titles on the same pet for the same due date, and (2) tasks whose duration alone exceeds the owner's total time budget and can therefore never be scheduled. Warnings surface at the top of `Schedule.summary()` so the UI can display them immediately.
 
+## Testing PawPal+
+
+### Run the tests
+
+```bash
+python -m pytest tests/ -v
+```
+
+### What the tests cover
+
+The suite contains **20 tests** across five categories:
+
+| Category | Tests | What is verified |
+|---|---|---|
+| **Core behavior** | 4 | `mark_complete()` flips status; `add_task()` grows the list; scheduler orders high → medium → low; tasks too long are skipped |
+| **Sorting** | 2 | Equal-priority tasks are ordered shortest-first (tiebreaker); `sort_by_duration()` returns ascending order independently |
+| **Recurrence** | 4 | Daily tasks produce a `+1 day` next occurrence; weekly tasks produce `+7 days`; as-needed tasks return `None`; completing a daily task through the Scheduler adds exactly one new pending task |
+| **Conflict detection** | 3 | Duplicate task titles fire a warning; tasks longer than the budget fire a warning; a clean list produces zero warnings |
+| **Edge cases** | 4 | Pet with no tasks, owner with no pets, all tasks already completed — all return empty schedules without crashing; a task that exactly equals `available_minutes` is planned (not skipped) |
+
+### Confidence level
+
+★★★★☆ (4 / 5)
+
+The core scheduling contract — priority ordering, time-budget enforcement, recurrence, and conflict detection — is fully covered and all 20 tests pass. The one-star gap reflects two open areas: (1) the Streamlit UI layer has no automated tests (requires browser interaction), and (2) conflict detection uses exact string matching, so semantically duplicate tasks with different titles (e.g., "Walk Mochi" vs "Morning walk") are not caught. These are known, documented tradeoffs rather than unknown risks.
+
 ### Suggested workflow
 
 1. Read the scenario carefully and identify requirements and edge cases.
