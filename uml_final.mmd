@@ -1,0 +1,58 @@
+classDiagram
+    class Task {
+        +String title
+        +int duration_minutes
+        +String priority
+        +String frequency
+        +bool completed
+        +date due_date
+        +priority_rank() int
+        +mark_complete() None
+        +next_occurrence() Task
+        +to_dict() dict
+    }
+
+    class Pet {
+        +String name
+        +String species
+        +List~Task~ tasks
+        +add_task(task) None
+        +get_tasks() List~Task~
+        +complete_task(task) Task
+        +to_dict() dict
+    }
+
+    class Owner {
+        +String name
+        +int available_minutes
+        +List~Pet~ pets
+        +add_pet(pet) None
+        +get_all_tasks() List~Task~
+        +get_tasks_for_pet(name) List~Task~
+        +to_dict() dict
+    }
+
+    class Scheduler {
+        +Owner owner
+        +generate_schedule() Schedule
+        +mark_task_complete(task) Task
+        +sort_by_duration(tasks) List~Task~
+        +filter_tasks(tasks, ...) List~Task~
+        -_rank_tasks(tasks) List~Task~
+        -_detect_conflicts() List~str~
+        -_build_reasoning(...) str
+    }
+
+    class Schedule {
+        +List~Task~ planned_tasks
+        +List~Task~ skipped_tasks
+        +int total_minutes_used
+        +String reasoning
+        +List~str~ conflicts
+        +summary() str
+    }
+
+    Owner "1" *-- "many" Pet : owns
+    Pet "1" *-- "many" Task : owns
+    Scheduler "1" --> "1" Owner : reads via
+    Scheduler "1" --> "1" Schedule : produces
