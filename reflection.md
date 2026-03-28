@@ -135,8 +135,17 @@ During review of the skeleton, a logic bottleneck was identified in `Task.priori
 
 **a. Constraints and priorities**
 
-- What constraints does your scheduler consider (for example: time, priority, preferences)?
-- How did you decide which constraints mattered most?
+The scheduler considers four constraints, in order of weight:
+
+1. **Time budget** (`available_minutes`) — a hard ceiling. No task can be scheduled if it would push total time over the limit. This is the most fundamental constraint because it reflects a real-world reality: the owner has a fixed amount of time in the day.
+
+2. **Priority** (`high` / `medium` / `low`) — the owner's expressed preference. The scheduler always attempts higher-priority tasks before lower ones, even if that means lower total utilization of the time budget.
+
+3. **Duration** — used as a tiebreaker within the same priority level. Among equally important tasks, shorter ones are scheduled first to maximize the number of tasks that fit.
+
+4. **Completion status** — completed tasks are excluded entirely from scheduling. This prevents already-done work from appearing in the day's plan.
+
+Time was placed above priority intentionally: a task cannot be "important enough to ignore physics." Priority sits above duration because it represents the owner's values — it would be wrong to schedule a low-priority grooming session before a high-priority medication just because grooming is shorter. Duration as a tiebreaker was a deliberate design choice, not a default; without it, equal-priority tasks would be ordered by insertion sequence, which is arbitrary.
 
 **b. Tradeoffs**
 
@@ -152,13 +161,23 @@ A second tradeoff appears in conflict detection: duplicate task detection uses e
 
 **a. How you used AI**
 
-- How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
-- What kinds of prompts or questions were most helpful?
+AI was used across every phase of this project, with a different mode for each:
+
+- **Design brainstorming** — prompting "what attributes and methods should each class own?" helped surface `frequency` and `due_date` as Task fields early, before they were needed for recurrence. Without that conversation, those fields would have been added as an afterthought and required a more disruptive refactor.
+- **Skeleton generation** — asking for Python dataclass stubs produced clean, idiomatic scaffolding (including the `field(default_factory=list)` pattern for mutable defaults) faster than writing boilerplate by hand.
+- **Code review** — the prompt "review this skeleton for missing relationships or logic bottlenecks" caught the `priority_rank()` silent-failure problem before any implementation was written. Asking "how could this algorithm be simplified?" surfaced the `collections.Counter` refactor for `_detect_conflicts`.
+- **Test planning** — asking "what are the most important edge cases for a scheduler with sorting and recurring tasks?" produced a structured list that became the 13-test gap analysis, catching cases like "task that exactly fills budget" that would have been easy to overlook.
+- **UI patterns** — asking about `st.session_state` and how to persist objects across Streamlit re-runs was the most practically useful single answer of the project.
+
+The most effective prompt structure throughout was: **give AI the specific file or function as context, then ask a focused question** rather than a broad one. "Based on `_detect_conflicts`, how could this be simplified?" consistently produced better output than "how do I detect duplicates in Python?"
 
 **b. Judgment and verification**
 
-- Describe one moment where you did not accept an AI suggestion as-is.
-- How did you evaluate or verify what the AI suggested?
+The clearest moment of rejection came with the `Scheduler` constructor. The original skeleton was `Scheduler(owner, pet, tasks)` — AI generated this and, if left unchallenged, would have kept it. Before writing any logic, I rejected that signature in favor of `Scheduler(owner)` only, on the grounds that `Pet` and the task list are both reachable through `Owner`. Passing them separately would have meant the caller was responsible for keeping three arguments in sync, and any future support for multiple pets would have required changing the constructor signature.
+
+To verify the decision was correct, I traced the data flow: `Scheduler.generate_schedule()` calls `owner.get_all_tasks()` which calls `pet.get_tasks()` for each pet. The `Scheduler` never needs to know about individual pets directly. The simpler interface was also confirmed by the test suite — every test creates only `Scheduler(owner=owner)` and the tests are clean and readable as a result.
+
+A second moment: when AI suggested collapsing `_detect_conflicts` into a dense one-liner using nested generators, I kept the two-loop version because the two conflict types (duplicate titles vs. impossible durations) are conceptually different checks that deserve to be readable as separate blocks.
 
 ---
 
@@ -166,13 +185,25 @@ A second tradeoff appears in conflict detection: duplicate task detection uses e
 
 **a. What you tested**
 
-- What behaviors did you test?
-- Why were these tests important?
+The suite covers 20 behaviors across five categories:
+
+- **Core behavior** — `mark_complete()` status flip, `add_task()` count growth, priority ordering (high → medium → low), budget enforcement (tasks that don't fit land in `skipped_tasks`). These were the first four tests written and serve as a sanity check that the basic contracts of every class hold.
+- **Sorting** — the duration tiebreaker (shorter HIGH task scheduled before longer HIGH task) and `sort_by_duration()` as a standalone utility. These matter because sorting is the invisible engine behind every schedule; a bug here affects every output.
+- **Recurrence** — daily `+1 day`, weekly `+7 days`, as-needed `→ None`, and the full chain through `Scheduler.mark_task_complete()`. Recurrence is stateful: it mutates the pet's task list, so testing the count before and after is essential.
+- **Conflict detection** — duplicate title fires, impossible task fires, clean list produces no warnings. The "no false positives" test is as important as the positive cases.
+- **Edge cases** — pet with no tasks, owner with no pets, all tasks already completed, task that exactly equals `available_minutes`. These test the boundaries of the greedy loop (`<=` vs `<`) and the empty-input guards.
+
+Tests were written for behaviors rather than implementations — each test asserts *what* should happen, not *how* the code achieves it. This means the tests remained valid across every refactor.
 
 **b. Confidence**
 
-- How confident are you that your scheduler works correctly?
-- What edge cases would you test next if you had more time?
+★★★★☆ (4 / 5). The scheduling contract is well-covered: 20 tests, all passing, zero flaky behavior observed across multiple runs.
+
+The remaining gap is in two areas. First, the Streamlit UI has no automated tests — interactions like clicking "Add task" or "Generate schedule" can only be verified manually. Second, the recurrence system has no test for the interaction between `filter_tasks` and recurring tasks (e.g., confirming that a newly created next-occurrence task appears correctly in a filtered view). If time permitted, the next tests would be:
+
+- Scheduling a mix of recurring and non-recurring tasks and verifying only the non-recurring ones disappear after completion
+- `available_minutes = 0` (zero budget — should produce empty planned list without crashing)
+- Multi-pet `filter_tasks` interaction (tasks from pet A must not appear in a filter for pet B even when both pets are in session state)
 
 ---
 
@@ -180,12 +211,22 @@ A second tradeoff appears in conflict detection: duplicate task detection uses e
 
 **a. What went well**
 
-- What part of this project are you most satisfied with?
+The layer separation is the part of this project I'm most satisfied with. Each class has a single, clear responsibility: `Task` knows about itself, `Pet` owns its tasks, `Owner` aggregates across pets, `Scheduler` coordinates without micromanaging. This paid dividends when recurring tasks were added — a significant feature that required adding `frequency`, `due_date`, `mark_complete()`, and `next_occurrence()` to `Task`, and `complete_task()` to `Pet`. The `Scheduler` required almost no changes: it just called `pet.complete_task(task)` and let `Pet` handle the rest. A tightly coupled design would have required rewriting the scheduler's core loop.
+
+The `Scheduler(owner)` interface was also a good decision. Every feature added after the initial design — filtering, sorting, recurrence, conflict detection — worked cleanly through the single `owner` entry point without requiring new constructor parameters.
 
 **b. What you would improve**
 
-- If you had another iteration, what would you improve or redesign?
+Two things stand out for a second iteration:
+
+First, **explicit time slots**. Tasks currently have a `due_date` but no start/end time. Conflict detection can only catch duplicate titles, not true scheduling conflicts (e.g., two 30-minute tasks both scheduled for 8am). Adding a `start_time` field to `Task` and assigning sequential start times in `generate_schedule()` would make conflict detection meaningful in the real sense of the word and would let `Schedule.summary()` display a proper timed agenda.
+
+Second, **data persistence**. All state is held in `st.session_state`, which is cleared on browser refresh and never saved. A real pet care app needs the task list and completion history to survive between sessions. Adding a lightweight JSON file export/import or SQLite backend would make the app usable beyond a single demo session.
 
 **c. Key takeaway**
 
-- What is one important thing you learned about designing systems or working with AI on this project?
+The most important thing I learned is that **AI is a fast executor, not a careful architect**. Given a prompt, it produces working code quickly — but it defaults to the path of least resistance and rarely pushes back on a design decision that is technically valid but architecturally poor. The `Scheduler(owner, pet, tasks)` constructor is the clearest example: AI generated it, it worked, and it would have stayed forever without a human asking "why does the caller need to pass data that's already reachable through `owner`?"
+
+Being the "lead architect" in an AI-assisted workflow means holding the system's design intent in your head and using that intent as a filter. Every AI suggestion should be evaluated against the question: "does this fit the design, or does it just solve the immediate problem?" When those two things conflict, the human has to choose — and the human is the only one in the collaboration who can.
+
+Keeping separate chat sessions for different phases (design, implementation, testing, UI) also made a concrete difference. A session that has been used for 30 minutes of sorting-algorithm discussion will generate different (and worse) answers to a question about Streamlit session state than a fresh session asked the same question with clean context. Context management is a real skill when working with AI tools.
