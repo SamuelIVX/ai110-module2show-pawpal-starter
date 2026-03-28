@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import List
+from datetime import date, timedelta
+from typing import List, Optional
 
 
 PRIORITY_MAP = {"low": 1, "medium": 2, "high": 3}
@@ -9,9 +10,10 @@ PRIORITY_MAP = {"low": 1, "medium": 2, "high": 3}
 class Task:
     title: str
     duration_minutes: int
-    priority: str           # "low", "medium", "high"
-    frequency: str = "daily"  # "daily", "weekly", "as-needed"
+    priority: str                    # "low", "medium", "high"
+    frequency: str = "daily"         # "daily", "weekly", "as-needed"
     completed: bool = False
+    due_date: date = field(default_factory=date.today)
 
     def priority_rank(self) -> int:
         """Convert priority string to int for sorting (high=3, medium=2, low=1)."""
@@ -21,6 +23,27 @@ class Task:
         """Mark this task as completed."""
         self.completed = True
 
+    def next_occurrence(self) -> Optional["Task"]:
+        """
+        Return a new pending Task scheduled for the next occurrence based on frequency.
+        Returns None for 'as-needed' tasks since they don't recur on a fixed schedule.
+        """
+        if self.frequency == "daily":
+            next_due = self.due_date + timedelta(days=1)
+        elif self.frequency == "weekly":
+            next_due = self.due_date + timedelta(weeks=1)
+        else:
+            return None  # "as-needed" tasks do not auto-recur
+
+        return Task(
+            title=self.title,
+            duration_minutes=self.duration_minutes,
+            priority=self.priority,
+            frequency=self.frequency,
+            completed=False,
+            due_date=next_due,
+        )
+
     def to_dict(self) -> dict:
         """Serialize this task to a plain dictionary."""
         return {
@@ -29,6 +52,7 @@ class Task:
             "priority": self.priority,
             "frequency": self.frequency,
             "completed": self.completed,
+            "due_date": self.due_date.isoformat(),
         }
 
 
@@ -45,6 +69,17 @@ class Pet:
     def get_tasks(self) -> List[Task]:
         """Return all tasks assigned to this pet."""
         return self.tasks
+
+    def complete_task(self, task: Task) -> Optional[Task]:
+        """
+        Mark a task complete and, if it recurs, add the next occurrence to this pet's list.
+        Returns the newly created Task, or None if the task does not recur.
+        """
+        task.mark_complete()
+        next_task = task.next_occurrence()
+        if next_task:
+            self.add_task(next_task)
+        return next_task
 
     def to_dict(self) -> dict:
         """Serialize this pet and its tasks to a plain dictionary."""
@@ -157,6 +192,16 @@ class Scheduler:
             total_minutes_used=total_used,
             reasoning=reasoning,
         )
+
+    def mark_task_complete(self, task: Task) -> Optional[Task]:
+        """
+        Find which pet owns the task, delegate completion to Pet.complete_task(),
+        and return the next occurrence if one was created.
+        """
+        for pet in self.owner.pets:
+            if task in pet.get_tasks():
+                return pet.complete_task(task)
+        return None
 
     def sort_by_duration(self, tasks: List[Task]) -> List[Task]:
         """Return tasks sorted by duration ascending (shortest first)."""
